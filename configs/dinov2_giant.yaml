@@ -1,5 +1,5 @@
 experiment:
-  name: "dinov2_giant_demo"
+  name: "dinov2_giant"
   output_dir: "outputs"
 
 runtime:
@@ -13,7 +13,7 @@ data:
   image_size: 518
 
 model:
-  name: "REPLACE_WITH_DINOV2_GIANT_MODEL_PATH"
+  name: "facebook/dinov2-giant"
   wrapper: "dinov2_giant"
   lora: "linear_r-8"
 

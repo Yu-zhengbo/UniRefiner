@@ -1,5 +1,5 @@
 experiment:
-  name: "evaclip8b_unirefiner"
+  name: "eva_clip_8b_448"
   output_dir: "outputs"
 
 runtime:

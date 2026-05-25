@@ -1,5 +1,5 @@
 experiment:
-  name: "siglip2_so400m_demo"
+  name: "siglip2_so400m_patch16_512"
   output_dir: "outputs"
 
 runtime:

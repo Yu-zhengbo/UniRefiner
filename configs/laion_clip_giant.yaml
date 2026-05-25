@@ -1,5 +1,5 @@
 experiment:
-  name: "laion_clip_giant_demo"
+  name: "clip_vit_g_14_laion2b_s12b_b42k"
   output_dir: "outputs"
 
 runtime:
@@ -13,7 +13,7 @@ data:
   image_size: 448
 
 model:
-  name: "REPLACE_WITH_LAION_CLIP_GIANT_MODEL_PATH"
+  name: "laion/CLIP-ViT-g-14-laion2B-s12B-b42K"
   wrapper: "openai_clip"
   lora: "linear_r-8"
 

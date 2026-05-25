@@ -6,7 +6,7 @@
 
 UniRefiner is a one-for-all refinement framework for ViT foundation models across architectures and scales. It improves dense spatial representations by teaching pre-trained ViTs to redirect spurious tokens into contrastive registers. Please see the [project page](https://congpeiqiu.github.io/UniRefiner/) for the full method description and visual analysis.
 
-| EVA-CLIP-8B | SigLIP2-So400M | RICE-ViT |
+| BAAI EVA-CLIP-8B-448 | Google SigLIP2-So400M | DeepGlint RICE-ViT-Large |
 |:---:|:---:|:---:|
 | <img src="assets/readme/eva_clip_8b_refine.webp" width="260"> | <img src="assets/readme/siglip2_so400m_refine.webp" width="260"> | <img src="assets/readme/rice_vit_refine.webp" width="260"> |
 
@@ -50,7 +50,7 @@ Supported image extensions are `.jpg`, `.jpeg`, `.png`, `.bmp`, and `.webp`.
 
 ## Run
 
-Running UniRefiner with 4 GPUs for the SigLIP2-So400M backbone:
+Running UniRefiner with 4 GPUs for `google/siglip2-so400m-patch16-512`:
 
 ```bash
 PYTHONPATH=$PWD \
@@ -74,19 +74,21 @@ Backbones are loaded through Hugging Face `transformers` by default. The project
 
 Built-in wrappers cover the recipes listed below. Custom wrappers can be passed through `model.wrapper` as `module.path:object`.
 
+The default recipes use official Hugging Face model IDs. Local checkpoints or mirrors can be used by overriding `model.name`.
+
 
 
 ## Training
 
-| # | Backbone | Recipe | Checkpoint |
-|:---:|:---|:---|:---:|
-| 1 | EVA-CLIP-8B | [configs/evaclip8b.yaml](configs/evaclip8b.yaml) | TBA |
-| 2 | InternViT | [configs/internvit_6b_224px.yaml](configs/internvit_6b_224px.yaml) | TBA |
-| 3 | OpenAI / LAION CLIP | [configs/laion_clip_giant.yaml](configs/laion_clip_giant.yaml) | TBA |
-| 4 | DINOv2-Giant | [configs/dinov2_giant.yaml](configs/dinov2_giant.yaml) | TBA |
-| 5 | SigLIP2-So400M | [configs/siglip2_so400m.yaml](configs/siglip2_so400m.yaml) | TBA |
-| 6 | SigLIP2-Giant | [configs/siglip2_giant_384.yaml](configs/siglip2_giant_384.yaml) | TBA |
-| 7 | RICE-ViT | [configs/rice_vit_large_560.yaml](configs/rice_vit_large_560.yaml) | TBA |
+| # | Backbone | Hugging Face model | Recipe | Checkpoint |
+|:---:|:---|:---|:---|:---:|
+| 1 | BAAI EVA-CLIP-8B-448 | `BAAI/EVA-CLIP-8B-448` | [configs/evaclip8b.yaml](configs/evaclip8b.yaml) | TBA |
+| 2 | OpenGVLab InternViT-6B-224px | `OpenGVLab/InternViT-6B-224px` | [configs/internvit_6b_224px.yaml](configs/internvit_6b_224px.yaml) | TBA |
+| 3 | LAION CLIP ViT-g/14, laion2B-s12B-b42K | `laion/CLIP-ViT-g-14-laion2B-s12B-b42K` | [configs/laion_clip_giant.yaml](configs/laion_clip_giant.yaml) | TBA |
+| 4 | Meta DINOv2 ViT-g/14 | `facebook/dinov2-giant` | [configs/dinov2_giant.yaml](configs/dinov2_giant.yaml) | TBA |
+| 5 | Google SigLIP2-So400M, patch16-512 | `google/siglip2-so400m-patch16-512` | [configs/siglip2_so400m.yaml](configs/siglip2_so400m.yaml) | TBA |
+| 6 | Google SigLIP2-Giant-OPT, patch16-384 | `google/siglip2-giant-opt-patch16-384` | [configs/siglip2_giant_384.yaml](configs/siglip2_giant_384.yaml) | TBA |
+| 7 | DeepGlint RICE-ViT-Large, patch14-560 | `DeepGlint-AI/rice-vit-large-patch14-560` | [configs/rice_vit_large_560.yaml](configs/rice_vit_large_560.yaml) | TBA |
 
 
 ## License

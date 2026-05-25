@@ -1,5 +1,5 @@
 experiment:
-  name: "rice_vit_large_560_demo"
+  name: "rice_vit_large_patch14_560"
   output_dir: "outputs"
 
 runtime:
@@ -13,7 +13,7 @@ data:
   image_size: 560
 
 model:
-  name: "REPLACE_WITH_RICE_VIT_LARGE_560_MODEL_PATH"
+  name: "DeepGlint-AI/rice-vit-large-patch14-560"
   wrapper: "rice_vit"
   lora: "linear_r-8"
 

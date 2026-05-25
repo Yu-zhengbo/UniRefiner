@@ -1,5 +1,5 @@
 experiment:
-  name: "internvit_6b_224px_demo"
+  name: "internvit_6b_224px"
   output_dir: "outputs"
 
 runtime:
@@ -13,7 +13,7 @@ data:
   image_size: 448
 
 model:
-  name: "REPLACE_WITH_INTERNVIT_6B_224PX_MODEL_PATH"
+  name: "OpenGVLab/InternViT-6B-224px"
   wrapper: "internvit"
   lora: "linear_r-8"
 

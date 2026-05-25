@@ -1,5 +1,5 @@
 experiment:
-  name: "siglip2_giant_384_demo"
+  name: "siglip2_giant_opt_patch16_384"
   output_dir: "outputs"
 
 runtime:
