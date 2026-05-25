@@ -1,0 +1,50 @@
+experiment:
+  name: "internvit_6b_224px_demo"
+  output_dir: "outputs"
+
+runtime:
+  batch_size: 2
+  workers: 8
+  epochs: 2
+  precision: "bf16"
+
+data:
+  train_image_root: "REPLACE_WITH_IMAGE_ROOT"
+  image_size: 448
+
+model:
+  name: "REPLACE_WITH_INTERNVIT_6B_224PX_MODEL_PATH"
+  wrapper: "internvit"
+  lora: "linear_r-8"
+
+method:
+  # register params
+  reg_factor: 32
+  register_type: "zero"
+
+  # FP-GP filter params
+  fp_gp_thres: 0.5
+
+  # adaptive register params
+  adaptive_register_thres: 0.55
+
+  # AH filter params
+  disable_attention_hijack_filter: false
+  attention_hijack_layer_start: 29
+  attention_hijack_layer_end: 31
+  attention_hijack_thres: 0.5
+
+  # InfoNCE params
+  uniformity_strength: 1.0
+
+optimizer:
+  name: "adamw"
+  lr: 1.0e-4
+  lr_last: 0.0
+  wd: 0.1
+  warmup: 0
+  scheduler: "const"
+
+logging:
+  wandb: false
+  wandb_mode: "offline"

@@ -1,0 +1,47 @@
+experiment:
+  name: "dinov2_giant_demo"
+  output_dir: "outputs"
+
+runtime:
+  batch_size: 8
+  workers: 8
+  epochs: 2
+  precision: "bf16"
+
+data:
+  train_image_root: "REPLACE_WITH_IMAGE_ROOT"
+  image_size: 518
+
+model:
+  name: "REPLACE_WITH_DINOV2_GIANT_MODEL_PATH"
+  wrapper: "dinov2_giant"
+  lora: "linear_r-8"
+
+method:
+  # register params
+  reg_factor: 37
+  register_type: "zero"
+
+  # FP-GP filter params
+  fp_gp_thres: 0.5
+
+  # adaptive register params
+  adaptive_register_thres: 0.55
+
+  # AH filter params
+  disable_attention_hijack_filter: true
+
+  # InfoNCE params
+  uniformity_strength: 0.3
+
+optimizer:
+  name: "adamw"
+  lr: 1.0e-4
+  lr_last: 0.0
+  wd: 0.1
+  warmup: 0
+  scheduler: "const"
+
+logging:
+  wandb: false
+  wandb_mode: "offline"
