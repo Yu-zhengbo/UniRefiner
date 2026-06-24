@@ -239,6 +239,7 @@ class UniRefinerMethod:
                     background_images,
                     ratio=0.35,
                     patch_size=model.patch_size,
+                    square=bool(getattr(teacher_model, "requires_square_inputs", False)),
                 )
 
                 self.teacher_hook_cache["record"] = True

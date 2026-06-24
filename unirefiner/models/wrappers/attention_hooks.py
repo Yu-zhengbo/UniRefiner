@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from .base import AttentionHooksNotSupported
@@ -142,6 +143,100 @@ def make_packed_qkv_hook(
     return hook
 
 
+def _extract_eva_rope(inputs: tuple[object, ...], kwargs: Mapping[str, object] | None) -> torch.Tensor | None:
+    if kwargs is not None and isinstance(kwargs.get("rope"), torch.Tensor):
+        return kwargs["rope"]
+    if len(inputs) > 1 and isinstance(inputs[1], torch.Tensor):
+        return inputs[1]
+    return None
+
+
+def _apply_eva_rope(
+    module: nn.Module,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    rope: torch.Tensor | None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if rope is None:
+        return q, k
+
+    try:
+        from timm.models.eva import apply_rot_embed_cat
+    except Exception as error:  # pragma: no cover - timm-version compatibility
+        raise AttentionHooksNotSupported(
+            "EvaAttention RoPE hooks require timm.models.eva.apply_rot_embed_cat."
+        ) from error
+
+    num_prefix_tokens = int(getattr(module, "num_prefix_tokens", 1))
+    rotate_half = bool(getattr(module, "rotate_half", False))
+    q = torch.cat(
+        [q[:, :, :num_prefix_tokens, :], apply_rot_embed_cat(q[:, :, num_prefix_tokens:, :], rope, half=rotate_half)],
+        dim=2,
+    )
+    k = torch.cat(
+        [k[:, :, :num_prefix_tokens, :], apply_rot_embed_cat(k[:, :, num_prefix_tokens:, :], rope, half=rotate_half)],
+        dim=2,
+    )
+    return q, k
+
+
+def make_eva_attention_pre_hook(
+    cache: Mapping[str, object],
+    *,
+    layer_id: int,
+    capture: Iterable[str] = ("q", "k"),
+    skip_prefix_tokens: int | None = None,
+    detach: bool = True,
+) -> Callable[[nn.Module, tuple[object, ...], Mapping[str, object]], None]:
+    """Create a pre-hook for timm EvaAttention, including qkv-bias and RoPE."""
+
+    capture = tuple(capture)
+
+    def hook(module: nn.Module, inputs: tuple[object, ...], kwargs: Mapping[str, object] | None = None) -> None:
+        if not bool(cache.get("record", False)):
+            return
+        if not inputs or not isinstance(inputs[0], torch.Tensor):
+            raise AttentionHooksNotSupported("EvaAttention pre-hook expected the first input to be a tensor.")
+
+        x = inputs[0]
+        batch_size, token_count, _ = x.shape
+        num_heads = int(getattr(module, "num_heads"))
+
+        if getattr(module, "qkv", None) is not None:
+            qkv = module.qkv(x)
+            q_bias = getattr(module, "q_bias", None)
+            if q_bias is not None:
+                qkv_bias = torch.cat((module.q_bias, module.k_bias, module.v_bias))
+                if bool(getattr(module, "qkv_bias_separate", False)):
+                    qkv = qkv + qkv_bias
+                else:
+                    qkv = F.linear(x, weight=module.qkv.weight, bias=qkv_bias)
+            qkv = qkv.reshape(batch_size, token_count, 3, num_heads, -1).permute(2, 0, 3, 1, 4)
+            q, k, v = qkv.unbind(0)
+        else:
+            q = module.q_proj(x).reshape(batch_size, token_count, num_heads, -1).transpose(1, 2)
+            k = module.k_proj(x).reshape(batch_size, token_count, num_heads, -1).transpose(1, 2)
+            v = module.v_proj(x).reshape(batch_size, token_count, num_heads, -1).transpose(1, 2)
+
+        q = module.q_norm(q)
+        k = module.k_norm(k)
+        q, k = _apply_eva_rope(module, q, k, _extract_eva_rope(inputs, kwargs))
+
+        skip = int(getattr(module, "num_prefix_tokens", 1) if skip_prefix_tokens is None else skip_prefix_tokens)
+        values = {
+            "q": q.transpose(1, 2).reshape(batch_size, token_count, -1),
+            "k": k.transpose(1, 2).reshape(batch_size, token_count, -1),
+            "v": v.transpose(1, 2).reshape(batch_size, token_count, -1),
+        }
+        for kind in capture:
+            if kind not in values:
+                continue
+            value = _slice_prefix(values[kind], skip)
+            cache[f"{layer_id}_{kind}"] = value.detach() if detach else value
+
+    return hook
+
+
 def get_nested_module(module: nn.Module, dotted_path: str) -> nn.Module:
     current: object = module
     for part in dotted_path.split("."):
@@ -238,6 +333,43 @@ def register_packed_qkv_hooks(
             handles.append(
                 layer.register_forward_hook(
                     make_state_hook(cache, layer_id=layer_id, skip_prefix_tokens=skip_prefix_tokens)
+                )
+            )
+    return HookHandleGroup(handles)
+
+
+def register_eva_attention_pre_hooks(
+    layers: Iterable[nn.Module],
+    cache: Mapping[str, object],
+    *,
+    attn_path: str = "attn",
+    capture: Iterable[str] = ("q", "k"),
+    skip_prefix_tokens: int | None = None,
+    get_states: bool = False,
+) -> HookHandleGroup:
+    """Register EvaAttention pre-hooks that record post-bias, post-RoPE Q/K."""
+
+    handles: list[torch.utils.hooks.RemovableHandle] = []
+    for layer_id, layer in enumerate(layers):
+        handles.append(
+            get_nested_module(layer, attn_path).register_forward_pre_hook(
+                make_eva_attention_pre_hook(
+                    cache,
+                    layer_id=layer_id,
+                    capture=capture,
+                    skip_prefix_tokens=skip_prefix_tokens,
+                ),
+                with_kwargs=True,
+            )
+        )
+        if get_states:
+            handles.append(
+                layer.register_forward_hook(
+                    make_state_hook(
+                        cache,
+                        layer_id=layer_id,
+                        skip_prefix_tokens=1 if skip_prefix_tokens is None else skip_prefix_tokens,
+                    )
                 )
             )
     return HookHandleGroup(handles)

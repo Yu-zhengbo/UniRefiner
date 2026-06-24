@@ -5,6 +5,7 @@ Training dataset implementation.
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
 from multiprocessing import Value
 from pathlib import Path
@@ -56,27 +57,42 @@ class RecursiveImageDataset(Dataset):
 
     def __init__(
         self,
-        image_root: str | Path,
+        image_root: str | Path | Sequence[str | Path],
         background_path: str | Path,
         transform: Callable,
         *,
         image_extensions: set[str] | None = None,
     ) -> None:
-        self.image_root = Path(image_root)
+        self.image_roots = self._normalize_image_roots(image_root)
+        self.image_root = self.image_roots[0] if len(self.image_roots) == 1 else self.image_roots
         self.background_path = Path(background_path)
         self.transform = transform
         self.image_extensions = image_extensions or IMAGE_EXTENSIONS
 
-        if not self.image_root.exists():
-            raise FileNotFoundError(f"Training image root does not exist: {self.image_root}")
+        for root in self.image_roots:
+            if not root.exists():
+                raise FileNotFoundError(f"Training image root does not exist: {root}")
         if not self.background_path.exists():
             raise FileNotFoundError(f"Background image does not exist: {self.background_path}")
 
-        self.samples = sorted(
-            path for path in self.image_root.rglob("*") if path.suffix.lower() in self.image_extensions
-        )
+        self.samples = []
+        for root in self.image_roots:
+            root_samples = sorted(path for path in root.rglob("*") if path.suffix.lower() in self.image_extensions)
+            if not root_samples:
+                raise RuntimeError(f"No images found under {root}")
+            self.samples.extend(root_samples)
         if not self.samples:
-            raise RuntimeError(f"No images found under {self.image_root}")
+            raise RuntimeError(f"No images found under {self.image_roots}")
+
+    @staticmethod
+    def _normalize_image_roots(image_root: str | Path | Sequence[str | Path]) -> tuple[Path, ...]:
+        if isinstance(image_root, (str, Path)):
+            roots = (Path(image_root),)
+        else:
+            roots = tuple(Path(root) for root in image_root)
+        if not roots:
+            raise ValueError("`train_image_root` must contain at least one path.")
+        return roots
 
     def __len__(self) -> int:
         return len(self.samples)

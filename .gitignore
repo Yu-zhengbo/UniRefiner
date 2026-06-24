@@ -9,3 +9,6 @@ __pycache__/
 outputs/
 wandb/
 *.log
+assets
+notebooks
+sam3

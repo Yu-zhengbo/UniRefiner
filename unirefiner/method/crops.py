@@ -95,6 +95,7 @@ def compose_crop_with_background(
     background_images: torch.Tensor,
     ratio: float = 0.5,
     patch_size: int = 16,
+    square: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     batch_size, channels, height, width = crop_images.shape
     background_images = background_images[:1]
@@ -104,6 +105,35 @@ def compose_crop_with_background(
         num_token_bg += 1
 
     layout = np.random.randint(0, 4)
+    if square:
+        total_tokens = num_tokens + num_token_bg
+        output_size = patch_size * total_tokens
+        new_img = F.interpolate(
+            background_images.float(),
+            size=(output_size, output_size),
+            mode="bilinear",
+            align_corners=False,
+        ).to(dtype=crop_images.dtype)
+        new_img = new_img.expand(batch_size, -1, -1, -1).clone()
+        fg_mask = torch.zeros(
+            (batch_size, total_tokens, total_tokens),
+            dtype=torch.bool,
+            device=crop_images.device,
+        )
+
+        row_start = 0
+        col_start = 0
+        if layout == 0:
+            col_start = num_token_bg
+        elif layout == 1:
+            row_start = num_token_bg
+
+        row_px = row_start * patch_size
+        col_px = col_start * patch_size
+        new_img[:, :, row_px : row_px + height, col_px : col_px + width] = crop_images
+        fg_mask[:, row_start : row_start + num_tokens, col_start : col_start + num_tokens] = 1
+        return new_img, fg_mask.reshape(batch_size, -1)
+
     if layout == 0:
         new_img = torch.zeros(
             (batch_size, channels, height, patch_size * (num_tokens + num_token_bg)),

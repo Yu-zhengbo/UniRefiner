@@ -1,0 +1,34 @@
+experiment:
+  name: "dinov3"
+  output_dir: "outputs"
+
+runtime:
+  batch_size: 16
+  workers: 8
+  epochs: 8
+  precision: "bf16"
+
+data:
+  train_image_root: ["/data/datasets/rs/LoveDA/img_dir/train","/data/datasets/rs/Potsdam/images/train",
+                    "/data/datasets/rs/Vaihingen/images/train"]
+  image_size: 512
+
+model:
+  name: "vit_large_patch16_dinov3_qkvb.sat493m-timm"
+  wrapper: "dinov3"
+  lora: "linear_r-8"
+
+method:
+  disable_attention_hijack_filter: false
+
+optimizer:
+  name: "adamw"
+  lr: 1.0e-5
+  lr_last: 0.0
+  wd: 0.1
+  warmup: 0
+  scheduler: "const"
+
+logging:
+  wandb: false
+  wandb_mode: "offline"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -44,11 +45,13 @@ BUILTIN_WRAPPERS: dict[str, str] = {
     "clip": "unirefiner.models.wrappers.openai_clip:wrap_openai_clip",
     "dinov2": "unirefiner.models.wrappers.dinov2:wrap_dinov2_giant",
     "dinov2_giant": "unirefiner.models.wrappers.dinov2:wrap_dinov2_giant",
+    "dinov3": "unirefiner.models.wrappers.dinov3:wrap_dinov3",
     "siglip2": "unirefiner.models.wrappers.siglip2:wrap_siglip2",
     "siglip2_so400m": "unirefiner.models.wrappers.siglip2:wrap_siglip2",
     "siglip2_giant": "unirefiner.models.wrappers.siglip2:wrap_siglip2",
     "rice": "unirefiner.models.wrappers.rice:wrap_rice_vit",
     "rice_vit": "unirefiner.models.wrappers.rice:wrap_rice_vit",
+    "sam3": "unirefiner.models.wrappers.sam3:wrap_sam3",
 }
 
 
@@ -141,8 +144,12 @@ def infer_builtin_wrapper_key(model_name: str) -> str:
         return "evaclip8b"
     if "internvit" in normalized:
         return "internvit"
+    if "dinov3" in normalized or "dino-v3" in normalized:
+        return "dinov3"
     if "dinov2-giant" in normalized or "dinov2_giant" in normalized or "dinov2" in normalized:
         return "dinov2_giant"
+    if "sam3" in normalized or "sam-3" in normalized or "segment-anything-3" in normalized:
+        return "sam3"
     if "siglip2" in normalized:
         return "siglip2"
     if "rice-vit" in normalized or "rice_vit" in normalized or "ricevit" in normalized:
@@ -198,6 +205,42 @@ def _checkpoint_for_role(request: ModelRequest) -> str | None:
     return None
 
 
+def _wrapper_key_for_request(request: ModelRequest) -> str:
+    if request.wrapper is None:
+        return infer_builtin_wrapper_key(request.name)
+    return str(request.wrapper)
+
+
+def _looks_like_existing_file(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        return Path(value).is_file()
+    except OSError:
+        return False
+
+
+def _create_sam3_model_from_request(request: ModelRequest, device: torch.device, cast_dtype: torch.dtype | None) -> nn.Module:
+    from .wrappers.sam3 import build_sam3_vision_model
+
+    role_checkpoint = _checkpoint_for_role(request)
+    sam3_checkpoint = request.name if _looks_like_existing_file(request.name) else role_checkpoint
+    base_model = build_sam3_vision_model(checkpoint_path=sam3_checkpoint)
+    wrapped_model = wrap_model(base_model, model_name="sam3", wrapper=request.wrapper)
+
+    if request.role == "student":
+        wrapped_model = _apply_lora_if_needed(wrapped_model, request.lora)
+
+    if cast_dtype is None:
+        wrapped_model.to(device=device)
+    else:
+        wrapped_model.to(device=device, dtype=cast_dtype)
+
+    if role_checkpoint is not None and role_checkpoint != sam3_checkpoint:
+        return load_checkpoint_if_needed(wrapped_model, role_checkpoint, role=request.role)
+    return wrapped_model
+
+
 def create_model(
     model_name: str | None = None,
     precision: str | None = None,
@@ -247,6 +290,9 @@ def create_model_from_request(request: ModelRequest) -> nn.Module:
     cast_dtype = get_cast_dtype(request.precision)
     normalized_name, backend = _parse_model_spec(request.name)
     logging.info("Loading %s model `%s` with wrapper `%s`.", request.role, normalized_name, request.wrapper or "auto")
+
+    if _wrapper_key_for_request(request) == "sam3":
+        return _create_sam3_model_from_request(request, device, cast_dtype)
 
     base_model = _load_base_model(
         normalized_name,

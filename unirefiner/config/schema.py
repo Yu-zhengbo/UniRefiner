@@ -52,7 +52,7 @@ class BackgroundConfig:
 
 @dataclass(slots=True)
 class DataConfig:
-    train_image_root: str = ""
+    train_image_root: str | list[str] = ""
     image_size: int = 448
     background: BackgroundConfig = field(default_factory=BackgroundConfig)
 
