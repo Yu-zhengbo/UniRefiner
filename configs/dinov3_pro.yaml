@@ -1,26 +1,26 @@
 experiment:
-  name: "sam3"
+  name: "dinov3_pro"
   output_dir: "outputs"
 
 runtime:
-  batch_size: 6
-  workers: 6
-  epochs: 4
+  batch_size: 16
+  workers: 8
+  epochs: 8
   precision: "bf16"
 
 data:
   train_image_root: ["/data/datasets/rs/LoveDA/img_dir/train","/data/datasets/rs/Potsdam/images/train",
                     "/data/datasets/rs/Vaihingen/images/train"]
-  image_size: 560
+  image_size: 512
 
 model:
-  name: "/home/cz/codes/githubs/sam3/checkpoints/sam3.pt"
-  wrapper: "sam3"
+  name: "vit_large_patch16_dinov3_qkvb.sat493m-timm"
+  wrapper: "dinov3"
   lora: "linear_r-8"
 
 method:
-  disable_attention_hijack_filter: true
-  enable_window_phase_artifact_loss: false
+  disable_attention_hijack_filter: false
+  enable_window_phase_artifact_loss: True
 
 optimizer:
   name: "adamw"

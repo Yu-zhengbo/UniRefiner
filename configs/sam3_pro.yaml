@@ -1,5 +1,5 @@
 experiment:
-  name: "sam3"
+  name: "sam3_pro"
   output_dir: "outputs"
 
 runtime:
@@ -20,7 +20,7 @@ model:
 
 method:
   disable_attention_hijack_filter: true
-  enable_window_phase_artifact_loss: false
+  enable_window_phase_artifact_loss: True
 
 optimizer:
   name: "adamw"

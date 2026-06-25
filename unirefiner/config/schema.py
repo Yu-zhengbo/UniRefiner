@@ -74,6 +74,7 @@ class MethodConfig:
     name: str = "unirefiner"
     reg_factor: int = 24
     register_type: str = "randn"
+    enable_window_phase_artifact_loss: bool = False
     fp_gp_thres: float | None = 0.5
     adaptive_register_thres: float = 0.6
     disable_attention_hijack_filter: bool = False

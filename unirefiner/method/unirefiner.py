@@ -27,6 +27,7 @@ from .crops import (
 from .losses import (
     compute_refinement_loss,
     compute_spatial_consistency_loss,
+    compute_window_phase_artifact_loss,
 )
 from .registers import normalize_register_fill, surround_image_with_registers
 
@@ -35,6 +36,33 @@ def reset_teacher_hook_cache(teacher_hook_cache: dict) -> None:
     teacher_hook_cache["record"] = False
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+
+
+def _coerce_window_size(value) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, (tuple, list)) and value:
+        return int(value[0])
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def infer_window_phase_window_size(model, default: int = 24) -> int:
+    for module in model.modules():
+        for attr in ("window_size", "window_block_size"):
+            window_size = _coerce_window_size(getattr(module, attr, None))
+            if window_size is not None and window_size > 0:
+                return window_size
+    return default
+
+
+def supports_window_phase_artifact_loss(args) -> bool:
+    model_key = str(getattr(args, "model_wrapper", "") or getattr(args, "model", "")).lower()
+    return "sam3" in model_key or "dinov3" in model_key or "dino-v3" in model_key
 
 
 class UniRefinerMethod:
@@ -373,6 +401,7 @@ class UniRefinerMethod:
             )
             total_loss = refinement_loss + 0.1 * register_absorption_loss
             spatial_consistency_loss = total_loss.new_zeros(())
+            window_phase_artifact_loss = total_loss.new_zeros(())
 
             # SCD starts after a short NCE warmup.
             spatial_consistency_start_stage = 0.1
@@ -407,10 +436,36 @@ class UniRefinerMethod:
                 )
                 total_loss = total_loss + 0.4 * spatial_consistency_loss
 
+            if bool(getattr(args, "enable_window_phase_artifact_loss", False)):
+                if supports_window_phase_artifact_loss(args):
+                    window_size = getattr(args, "_window_phase_window_size", None)
+                    if window_size is None:
+                        window_size = infer_window_phase_window_size(model)
+                        args._window_phase_window_size = window_size
+                    window_phase_artifact_loss = compute_window_phase_artifact_loss(
+                        model,
+                        images,
+                        patch_size=model.patch_size,
+                        window_size=window_size,
+                        encode_dense=lambda input_images: apply_channel_mask(
+                            model.encode_dense(input_images),
+                            args=args,
+                        ),
+                    )
+                    total_loss = total_loss + window_phase_artifact_loss * 10.
+                elif not getattr(args, "_warned_window_phase_unsupported", False):
+                    logging.warning(
+                        "enable_window_phase_artifact_loss is true but model_wrapper=%s is not SAM3 or DINOv3; "
+                        "skipping window-phase artifact loss.",
+                        getattr(args, "model_wrapper", None),
+                    )
+                    args._warned_window_phase_unsupported = True
+
             losses = {
                 "loss_final": total_loss,
                 "nce_loss": refinement_loss,
                 "loss_scd": spatial_consistency_loss,
+                "loss_wpa": window_phase_artifact_loss,
                 "loss_cos": mean_alignment,
                 "align_reg": register_absorption_loss,
                 "uniform_reg": register_uniformity.detach().mean(),
