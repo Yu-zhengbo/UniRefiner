@@ -2,7 +2,7 @@
 
 This repository is based on **UniRefiner: Teaching Pre-trained ViTs to Self-Dispose Dross via Contrastive Register**.
 
-Original UniRefiner materials: [[Project Page](https://congpeiqiu.github.io/UniRefiner/)] [[Paper](https://arxiv.org/abs/2605.19622)] [[PDF](https://arxiv.org/pdf/2605.19622)] [[BibTeX](#citation)]
+Original UniRefiner materials: [[Upstream README](https://github.com/congpeiqiu/UniRefiner#readme)] [[Project Page](https://congpeiqiu.github.io/UniRefiner/)] [[Paper](https://arxiv.org/abs/2605.19622)] [[PDF](https://arxiv.org/pdf/2605.19622)] [[BibTeX](#citation)]
 
 ## What Changed in This Fork
 
@@ -13,6 +13,7 @@ This fork keeps the original UniRefiner training pipeline and adds support for n
 - **Shift consistency loss**: added a window-phase shift consistency regularizer in [unirefiner/method/losses.py](unirefiner/method/losses.py). It shifts images by patch-aligned offsets without wraparound and penalizes dense-token cosine distance on the valid overlapping region.
 - **Training switches**: added `method.enable_window_phase_artifact_loss` for the new loss and `model.grad_checkpointing` for student models that expose `set_grad_checkpointing`.
 - **Ready-to-run pro recipes**: `*_pro.yaml` enables the shift consistency loss for SAM3/DINOv3, and `dinov3_pro.yaml` also enables gradient checkpointing.
+- **Local output hygiene**: `sam3/` and `output*` are ignored so local SAM3 checkouts, checkpoints, and training outputs are not committed by accident.
 
 ## Introduction
 
@@ -24,7 +25,9 @@ UniRefiner is a one-for-all refinement framework for ViT foundation models acros
 
 ## Installation
 
-The original UniRefiner installation flow is still used. We recommend using `uv` through the provided setup helper:
+The original UniRefiner installation flow is still used. For the upstream instructions and background, see the [original README](https://github.com/congpeiqiu/UniRefiner#readme).
+
+We recommend using `uv` through the provided setup helper:
 
 ```bash
 bash tools/setup_uv_env.sh
@@ -50,6 +53,12 @@ The checked-in SAM3 configs contain a local checkpoint path for the author's mac
 ```bash
 --override model.name=/path/to/sam3.pt
 ```
+
+### Optional DINOv3 Setup
+
+DINOv3 recipes use the timm model id `vit_large_patch16_dinov3_qkvb.sat493m-timm` with `model.wrapper=dinov3`. If your environment uses a local checkpoint or mirror, override `model.name` in the same way as other UniRefiner recipes.
+
+The checked-in `*_pro.yaml` files contain local example dataset paths. Replace `data.train_image_root` with your own image folders before training.
 
 ## Data Preparation
 
@@ -142,14 +151,17 @@ torchrun --nproc_per_node=4 -m unirefiner.cli.train \
   --override experiment.output_dir=outputs/sam3_pro
 ```
 
-To enable the new loss in another compatible config, set:
+## Shift Consistency Loss
+
+The shift consistency loss is implemented as `compute_window_phase_artifact_loss`. It detects the model's local window size, creates quarter-window and half-window patch shifts, re-encodes shifted images without wraparound, aligns the valid overlapping token grids, and minimizes cosine distance between original and shifted dense tokens.
+
+It is currently enabled only for SAM3 and DINOv3 wrappers. To enable it in another compatible config, set:
 
 ```bash
 --override method.enable_window_phase_artifact_loss=true
 ```
 
 During training this term is logged as `loss_wpa`.
-
 
 ## Training
 
@@ -162,8 +174,10 @@ During training this term is logged as `loss_wpa`.
 | 5 | Google SigLIP2-So400M, patch16-512 | `google/siglip2-so400m-patch16-512` | [configs/siglip2_so400m.yaml](configs/siglip2_so400m.yaml) | TBA |
 | 6 | Google SigLIP2-Giant-OPT, patch16-384 | `google/siglip2-giant-opt-patch16-384` | [configs/siglip2_giant_384.yaml](configs/siglip2_giant_384.yaml) | TBA |
 | 7 | DeepGlint RICE-ViT-Large, patch14-560 | `DeepGlint-AI/rice-vit-large-patch14-560` | [configs/rice_vit_large_560.yaml](configs/rice_vit_large_560.yaml) | TBA |
-| 8 | DINOv3 ViT-L/16 | `vit_large_patch16_dinov3_qkvb.sat493m-timm` | [configs/dinov3.yaml](configs/dinov3.yaml), [configs/dinov3_pro.yaml](configs/dinov3_pro.yaml) | TBA |
-| 9 | SAM3 vision trunk | local SAM3 checkpoint | [configs/sam3.yaml](configs/sam3.yaml), [configs/sam3_pro.yaml](configs/sam3_pro.yaml) | TBA |
+| 8 | DINOv3 ViT-L/16 | `vit_large_patch16_dinov3_qkvb.sat493m-timm` | [configs/dinov3.yaml](configs/dinov3.yaml) | TBA |
+| 9 | DINOv3 ViT-L/16 + shift consistency | `vit_large_patch16_dinov3_qkvb.sat493m-timm` | [configs/dinov3_pro.yaml](configs/dinov3_pro.yaml) | TBA |
+| 10 | SAM3 vision trunk | local SAM3 checkpoint | [configs/sam3.yaml](configs/sam3.yaml) | TBA |
+| 11 | SAM3 vision trunk + shift consistency | local SAM3 checkpoint | [configs/sam3_pro.yaml](configs/sam3_pro.yaml) | TBA |
 
 
 ## License
