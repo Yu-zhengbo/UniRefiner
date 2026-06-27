@@ -67,6 +67,7 @@ class ModelConfig:
     lora: str | None = None
     cache_dir: str | None = None
     trust_remote_code: bool = True
+    grad_checkpointing: bool = False
 
 
 @dataclass(slots=True)

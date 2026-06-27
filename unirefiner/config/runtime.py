@@ -34,6 +34,7 @@ def to_runtime_namespace(config: UniRefinerConfig) -> SimpleNamespace:
         "lora_model": config.model.lora,
         "cache_dir": config.model.cache_dir,
         "trust_remote_code": config.model.trust_remote_code,
+        "grad_checkpointing": config.model.grad_checkpointing,
         "method": method_name,
         "optimizer": config.optimizer.name,
         "lr": config.optimizer.lr,

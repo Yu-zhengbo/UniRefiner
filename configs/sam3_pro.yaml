@@ -3,14 +3,15 @@ experiment:
   output_dir: "outputs"
 
 runtime:
-  batch_size: 6
-  workers: 6
-  epochs: 4
+  batch_size: 10
+  workers: 5
+  epochs: 8
   precision: "bf16"
 
 data:
   train_image_root: ["/data/datasets/rs/LoveDA/img_dir/train","/data/datasets/rs/Potsdam/images/train",
-                    "/data/datasets/rs/Vaihingen/images/train"]
+                    "/data/datasets/rs/Vaihingen/images/train","/data1/datasets/zhengbo/roaddataset/deepglobe/images/train",
+                    "/data1/datasets/zhengbo/roaddataset/chn6/images/train","/data1/datasets/zhengbo/roaddataset/mass/images/train"]
   image_size: 560
 
 model:

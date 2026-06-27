@@ -31,6 +31,7 @@ class ModelRequest:
     role: str = "student"
     trust_remote_code: bool = True
     cache_dir: str | None = None
+    grad_checkpointing: bool = False
     student_checkpoint: str | None = None
     teacher_checkpoint: str | None = None
 
@@ -92,6 +93,7 @@ def request_from_config(config: Any, *, role: str = "student", device: str | tor
         role=role,
         trust_remote_code=bool(_get_nested(config, "model", "trust_remote_code", True)),
         cache_dir=_get_nested(config, "model", "cache_dir", None),
+        grad_checkpointing=bool(_get_nested(config, "model", "grad_checkpointing", False)),
         student_checkpoint=_get_nested(config, "model", "student_checkpoint", _get_field(config, "student_model_ckpt", None)),
         teacher_checkpoint=_get_nested(config, "model", "teacher_checkpoint", _get_field(config, "teacher_model_ckpt", None)),
     )
@@ -197,6 +199,20 @@ def _apply_lora_if_needed(model: nn.Module, lora: str | None) -> nn.Module:
     return apply_lora(model, lora, merge=False)
 
 
+def _apply_grad_checkpointing_if_needed(model: nn.Module, request: ModelRequest) -> None:
+    if not request.grad_checkpointing or request.role != "student":
+        return
+    set_grad_checkpointing = getattr(model, "set_grad_checkpointing", None)
+    if callable(set_grad_checkpointing):
+        set_grad_checkpointing(True)
+        logging.info("Enabled activation checkpointing for student model `%s`.", request.name)
+    else:
+        logging.warning(
+            "model.grad_checkpointing=true but `%s` does not expose set_grad_checkpointing; continuing without it.",
+            request.name,
+        )
+
+
 def _checkpoint_for_role(request: ModelRequest) -> str | None:
     if request.role == "student":
         return request.student_checkpoint
@@ -271,6 +287,9 @@ def create_model(
         role=role,
         trust_remote_code=bool(_get_field(args, "trust_remote_code", True)),
         cache_dir=_get_field(args, "cache_dir", None),
+        grad_checkpointing=bool(
+            _get_nested(args, "model", "grad_checkpointing", _get_field(args, "grad_checkpointing", False))
+        ),
         student_checkpoint=_get_nested(args, "model", "student_checkpoint", _get_field(args, "student_model_ckpt", None)),
         teacher_checkpoint=_get_nested(args, "model", "teacher_checkpoint", _get_field(args, "teacher_model_ckpt", None)),
     )
@@ -302,6 +321,7 @@ def create_model_from_request(request: ModelRequest) -> nn.Module:
         cache_dir=request.cache_dir,
     )
     wrapped_model = wrap_model(base_model, model_name=normalized_name, wrapper=request.wrapper)
+    _apply_grad_checkpointing_if_needed(wrapped_model, request)
 
     if request.role == "student":
         wrapped_model = _apply_lora_if_needed(wrapped_model, request.lora)

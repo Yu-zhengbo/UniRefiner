@@ -1,6 +1,18 @@
-# UniRefiner: Teaching Pre-trained ViTs to Self-Dispose Dross via Contrastive Register
+# UniRefiner Fork: SAM3, DINOv3, and Shift Consistency Loss
 
-[[Project Page](https://congpeiqiu.github.io/UniRefiner/)] [[Paper](https://arxiv.org/abs/2605.19622)] [[PDF](https://arxiv.org/pdf/2605.19622)] [[BibTeX](#citation)]
+This repository is based on **UniRefiner: Teaching Pre-trained ViTs to Self-Dispose Dross via Contrastive Register**.
+
+Original UniRefiner materials: [[Project Page](https://congpeiqiu.github.io/UniRefiner/)] [[Paper](https://arxiv.org/abs/2605.19622)] [[PDF](https://arxiv.org/pdf/2605.19622)] [[BibTeX](#citation)]
+
+## What Changed in This Fork
+
+This fork keeps the original UniRefiner training pipeline and adds support for newer backbones and an extra consistency regularizer:
+
+- **SAM3 support**: added `unirefiner.models.wrappers.sam3`, registry wiring, and recipes in [configs/sam3.yaml](configs/sam3.yaml) and [configs/sam3_pro.yaml](configs/sam3_pro.yaml). The wrapper builds the SAM3 vision trunk, loads detector checkpoints, exposes dense patch tokens, and registers attention hooks.
+- **DINOv3 support**: added `unirefiner.models.wrappers.dinov3`, registry auto-detection, and recipes in [configs/dinov3.yaml](configs/dinov3.yaml) and [configs/dinov3_pro.yaml](configs/dinov3_pro.yaml). The recipe uses the timm model id `vit_large_patch16_dinov3_qkvb.sat493m-timm`.
+- **Shift consistency loss**: added a window-phase shift consistency regularizer in [unirefiner/method/losses.py](unirefiner/method/losses.py). It shifts images by patch-aligned offsets without wraparound and penalizes dense-token cosine distance on the valid overlapping region.
+- **Training switches**: added `method.enable_window_phase_artifact_loss` for the new loss and `model.grad_checkpointing` for student models that expose `set_grad_checkpointing`.
+- **Ready-to-run pro recipes**: `*_pro.yaml` enables the shift consistency loss for SAM3/DINOv3, and `dinov3_pro.yaml` also enables gradient checkpointing.
 
 ## Introduction
 
@@ -12,7 +24,7 @@ UniRefiner is a one-for-all refinement framework for ViT foundation models acros
 
 ## Installation
 
-We recommend using `uv` through the provided setup helper:
+The original UniRefiner installation flow is still used. We recommend using `uv` through the provided setup helper:
 
 ```bash
 bash tools/setup_uv_env.sh
@@ -27,6 +39,16 @@ uv venv .venv --python 3.10
 source .venv/bin/activate
 uv pip install --index-url https://download.pytorch.org/whl/cu124 torch==2.6.0 torchvision==0.21.0
 uv pip install -e ".[dev]"
+```
+
+### Optional SAM3 Setup
+
+SAM3 is optional. To run the SAM3 recipes, make sure the `sam3` Python package is importable, or place a local SAM3 checkout at `./sam3`. The local `sam3/` directory is intentionally ignored by git.
+
+The checked-in SAM3 configs contain a local checkpoint path for the author's machine. Override it when training:
+
+```bash
+--override model.name=/path/to/sam3.pt
 ```
 
 ## Data Preparation
@@ -76,6 +98,57 @@ Built-in wrappers cover the recipes listed below. Custom wrappers can be passed 
 
 The default recipes use official Hugging Face model IDs. Local checkpoints or mirrors can be used by overriding `model.name`.
 
+### New Recipes in This Fork
+
+Run DINOv3:
+
+```bash
+PYTHONPATH=$PWD \
+torchrun --nproc_per_node=4 -m unirefiner.cli.train \
+  --config configs/dinov3.yaml \
+  --override data.train_image_root=/path/to/train_images \
+  --override experiment.output_dir=outputs/dinov3
+```
+
+Run DINOv3 with shift consistency loss:
+
+```bash
+PYTHONPATH=$PWD \
+torchrun --nproc_per_node=4 -m unirefiner.cli.train \
+  --config configs/dinov3_pro.yaml \
+  --override data.train_image_root=/path/to/train_images \
+  --override experiment.output_dir=outputs/dinov3_pro
+```
+
+Run SAM3:
+
+```bash
+PYTHONPATH=$PWD \
+torchrun --nproc_per_node=4 -m unirefiner.cli.train \
+  --config configs/sam3.yaml \
+  --override model.name=/path/to/sam3.pt \
+  --override data.train_image_root=/path/to/train_images \
+  --override experiment.output_dir=outputs/sam3
+```
+
+Run SAM3 with shift consistency loss:
+
+```bash
+PYTHONPATH=$PWD \
+torchrun --nproc_per_node=4 -m unirefiner.cli.train \
+  --config configs/sam3_pro.yaml \
+  --override model.name=/path/to/sam3.pt \
+  --override data.train_image_root=/path/to/train_images \
+  --override experiment.output_dir=outputs/sam3_pro
+```
+
+To enable the new loss in another compatible config, set:
+
+```bash
+--override method.enable_window_phase_artifact_loss=true
+```
+
+During training this term is logged as `loss_wpa`.
 
 
 ## Training
@@ -89,6 +162,8 @@ The default recipes use official Hugging Face model IDs. Local checkpoints or mi
 | 5 | Google SigLIP2-So400M, patch16-512 | `google/siglip2-so400m-patch16-512` | [configs/siglip2_so400m.yaml](configs/siglip2_so400m.yaml) | TBA |
 | 6 | Google SigLIP2-Giant-OPT, patch16-384 | `google/siglip2-giant-opt-patch16-384` | [configs/siglip2_giant_384.yaml](configs/siglip2_giant_384.yaml) | TBA |
 | 7 | DeepGlint RICE-ViT-Large, patch14-560 | `DeepGlint-AI/rice-vit-large-patch14-560` | [configs/rice_vit_large_560.yaml](configs/rice_vit_large_560.yaml) | TBA |
+| 8 | DINOv3 ViT-L/16 | `vit_large_patch16_dinov3_qkvb.sat493m-timm` | [configs/dinov3.yaml](configs/dinov3.yaml), [configs/dinov3_pro.yaml](configs/dinov3_pro.yaml) | TBA |
+| 9 | SAM3 vision trunk | local SAM3 checkpoint | [configs/sam3.yaml](configs/sam3.yaml), [configs/sam3_pro.yaml](configs/sam3_pro.yaml) | TBA |
 
 
 ## License

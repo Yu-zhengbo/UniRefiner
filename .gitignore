@@ -12,3 +12,4 @@ wandb/
 assets
 notebooks
 sam3
+output*
