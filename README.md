@@ -2,7 +2,7 @@
 
 This repository is based on **UniRefiner: Teaching Pre-trained ViTs to Self-Dispose Dross via Contrastive Register**.
 
-Original UniRefiner materials: [[Upstream README](https://github.com/congpeiqiu/UniRefiner#readme)] [[Project Page](https://congpeiqiu.github.io/UniRefiner/)] [[Paper](https://arxiv.org/abs/2605.19622)] [[PDF](https://arxiv.org/pdf/2605.19622)] [[BibTeX](#citation)]
+Original UniRefiner materials: [[Upstream README](https://github.com/CongpeiQiu/UniRefiner#readme)] [[Project Page](https://congpeiqiu.github.io/UniRefiner/)] [[Paper](https://arxiv.org/abs/2605.19622)] [[PDF](https://arxiv.org/pdf/2605.19622)] [[BibTeX](#citation)]
 
 ## What Changed in This Fork
 
@@ -25,7 +25,7 @@ UniRefiner is a one-for-all refinement framework for ViT foundation models acros
 
 ## Installation
 
-The original UniRefiner installation flow is still used. For the upstream instructions and background, see the [original README](https://github.com/congpeiqiu/UniRefiner#readme).
+The original UniRefiner installation flow is still used. For the upstream instructions and background, see the [original README](https://github.com/CongpeiQiu/UniRefiner#readme).
 
 We recommend using `uv` through the provided setup helper:
 
